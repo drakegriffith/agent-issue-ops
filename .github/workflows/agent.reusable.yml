@@ -55,9 +55,11 @@ jobs:
           4. Self-review the diff on two axes and fix what you find: Standards (repo's
              documented standards) and Spec (does exactly what the issue asked, no more).
           5. Open ONE single-branch pull request proposing merge into the default branch,
-             titled for the issue and linking it (Closes #N).
-          HARD RULES: one branch only; open a PR but NEVER merge it; if the issue is too
-          large or ambiguous to fix safely, stop and comment recommending "@agent-grill".
+             titled for the issue and linking it with a NON-closing reference (Refs #N).
+          HARD RULES: one branch only; open a PR but NEVER merge it; NEVER use an
+          auto-closing keyword (Closes/Fixes/Resolves) — the human verifies the fix and
+          closes the issue MANUALLY after merge; if the issue is too large or ambiguous to
+          fix safely, stop and comment recommending "@agent-grill".
           PROMPT
               ;;
             grill)
