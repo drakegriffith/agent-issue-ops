@@ -1,0 +1,16 @@
+name: agent-explorer
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created]
+jobs:
+  call:
+    permissions:
+      contents: read
+      issues: write
+    uses: OWNER/agent-issue-ops/.github/workflows/agent.reusable.yml@main
+    with:
+      role: explorer
+      trigger_phrase: "@agent-explorer"
+    secrets: inherit

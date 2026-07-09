@@ -1,0 +1,17 @@
+name: agent-fix
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created]
+jobs:
+  call:
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    uses: OWNER/agent-issue-ops/.github/workflows/agent.reusable.yml@main
+    with:
+      role: fix
+      trigger_phrase: "@agent-fix"
+    secrets: inherit

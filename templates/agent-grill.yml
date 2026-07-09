@@ -1,0 +1,16 @@
+name: agent-grill
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created]
+jobs:
+  call:
+    permissions:
+      contents: read
+      issues: write
+    uses: OWNER/agent-issue-ops/.github/workflows/agent.reusable.yml@main
+    with:
+      role: grill
+      trigger_phrase: "@agent-grill"
+    secrets: inherit

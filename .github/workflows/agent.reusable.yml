@@ -1,0 +1,88 @@
+name: agent-reusable
+on:
+  workflow_call:
+    inputs:
+      role:
+        description: "explorer | fix | grill"
+        required: true
+        type: string
+      trigger_phrase:
+        required: true
+        type: string
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select role prompt
+        run: |
+          set -euo pipefail
+          case "${{ inputs.role }}" in
+            explorer)
+              cat > /tmp/agent-prompt.md <<'PROMPT'
+          You are @agent-explorer, mentioned on a GitHub issue in this repo.
+          You are READ-ONLY: you may NOT change code, create branches, or open PRs.
+          1. Read the issue title, body, and every comment.
+          2. Explore the repository for all context relevant to this issue: the files
+             involved (path:line), how they work today, related tests, the repo's
+             AGENTS.md / CLAUDE.md coding standards, and any spec/PRD it references.
+          3. Compact it into a TIGHT brief a fresh engineer could act on without
+             re-exploring: the problem, exact files/functions, the constraints, and
+             the smallest correct approach.
+          4. Recommend exactly ONE next move and name the agent:
+             - "@agent-fix" if the issue is well-scoped and safe to implement now.
+             - "@agent-grill" if it is under-specified and needs sharpening first.
+             Give a one-line reason.
+          5. If this issue must be resolved BEFORE other issues in the repo (it gates
+             dependent work — e.g. a large grill-me others build on), apply the
+             "do-first" label to the issue and say so in your brief. Most minor bug
+             fixes are order-independent — leave them unlabeled.
+          Post the brief + recommendation as ONE issue comment. Do NOT summon the next
+          agent (the human will). Do NOT edit files (labelling the issue is allowed).
+          PROMPT
+              ;;
+            fix)
+              cat > /tmp/agent-prompt.md <<'PROMPT'
+          You are @agent-fix, mentioned on a GitHub issue in this repo.
+          Follow the Pocock implement protocol, test-first:
+          1. Read the issue and the @agent-explorer brief in the comments (your context).
+          2. Read the repo's AGENTS.md / CLAUDE.md coding standards and matching tests.
+          3. TDD: write a FAILING test capturing the fix, run it and confirm it fails,
+             then write the minimal code to pass, then run the full suite green.
+          4. Self-review the diff on two axes and fix what you find: Standards (repo's
+             documented standards) and Spec (does exactly what the issue asked, no more).
+          5. Open ONE single-branch pull request proposing merge into the default branch,
+             titled for the issue and linking it (Closes #N).
+          HARD RULES: one branch only; open a PR but NEVER merge it; if the issue is too
+          large or ambiguous to fix safely, stop and comment recommending "@agent-grill".
+          PROMPT
+              ;;
+            grill)
+              cat > /tmp/agent-prompt.md <<'PROMPT'
+          You are @agent-grill, mentioned on a GitHub issue in this repo.
+          The issue is under-specified. Run a grill-me pass BEFORE any code:
+          1. Read the issue and any @agent-explorer brief.
+          2. Post ONE comment with the smallest set of pointed questions whose answers
+             you need to make this issue safe to implement: scope boundaries, acceptance
+             criteria, edge cases, and anything ambiguous. No filler.
+          3. Do NOT change code and do NOT open a PR.
+          When the human answers they will mention "@agent-fix". If the issue is clearly
+          scoped after your questions, end your comment recommending "@agent-fix".
+          PROMPT
+              ;;
+            *)
+              echo "unknown role: ${{ inputs.role }}" >&2; exit 1 ;;
+          esac
+          {
+            echo "AGENT_PROMPT<<PROMPT_EOF"
+            cat /tmp/agent-prompt.md
+            echo "PROMPT_EOF"
+          } >> "$GITHUB_ENV"
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          trigger_phrase: ${{ inputs.trigger_phrase }}
+          prompt: ${{ env.AGENT_PROMPT }}
