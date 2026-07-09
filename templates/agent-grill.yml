@@ -9,7 +9,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-    uses: OWNER/agent-issue-ops/.github/workflows/agent.reusable.yml@main
+    uses: OWNER/agent-issue-ops/.github/workflows/agent.reusable.yml@master
     with:
       role: grill
       trigger_phrase: "@agent-grill"
