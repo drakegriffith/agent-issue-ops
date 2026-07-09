@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Install the agent caller workflows + OAuth secret + ordering label into target repos.
+# Install the agent caller workflows + Codex auth secret + ordering label into target repos.
 # Usage:
 #   ./bootstrap.sh --dry-run owner/repo [owner/repo ...]
 #   ./bootstrap.sh owner/repo [owner/repo ...]
 #   ./bootstrap.sh --all            # every non-fork, non-archived repo you own
-# Requires: gh (authenticated), and CLAUDE_CODE_OAUTH_TOKEN in the environment.
+# Requires: gh (authenticated), and a ChatGPT-plan Codex login stored as a file:
+#   set cli_auth_credentials_store = "file" in ~/.codex/config.toml, then `codex login`.
+# Re-running this script is also the RESEED path when CI auth goes stale.
 set -euo pipefail
 
 DRY=0; ALL=0; REPOS=()
@@ -16,7 +18,15 @@ for a in "$@"; do
   esac
 done
 
-: "${CLAUDE_CODE_OAUTH_TOKEN:?export CLAUDE_CODE_OAUTH_TOKEN before running}"
+CODEX_AUTH_FILE="${CODEX_HOME:-$HOME/.codex}/auth.json"
+if [ ! -f "$CODEX_AUTH_FILE" ]; then
+  echo "missing $CODEX_AUTH_FILE — set cli_auth_credentials_store = \"file\" in ~/.codex/config.toml, then run: codex login" >&2
+  exit 1
+fi
+if command -v jq >/dev/null; then
+  AUTH_MODE="$(jq -r '.auth_mode // empty' "$CODEX_AUTH_FILE")"
+  [ "$AUTH_MODE" = "chatgpt" ] || { echo "auth_mode in $CODEX_AUTH_FILE is '$AUTH_MODE', expected 'chatgpt' (ChatGPT-plan login)" >&2; exit 1; }
+fi
 OWNER="$(gh api user --jq .login)"
 if [ "$ALL" = 1 ]; then
   mapfile -t REPOS < <(gh repo list "$OWNER" --no-archived --source --limit 500 --json nameWithOwner --jq '.[].nameWithOwner')
@@ -37,7 +47,8 @@ for repo in "${REPOS[@]}"; do
       -f content='${content}' \
       -f sha=\"\$(gh api repos/${repo}/contents/${path} --jq .sha 2>/dev/null || true)\" >/dev/null"
   done
-  run "gh secret set CLAUDE_CODE_OAUTH_TOKEN -R \"${repo}\" --body \"\${CLAUDE_CODE_OAUTH_TOKEN}\""
+  # --body-file keeps the token out of the command string (and out of --dry-run output).
+  run "gh secret set CODEX_AUTH_JSON -R \"${repo}\" --body-file \"\${CODEX_AUTH_FILE}\""
   # Ordering label: prerequisite issues that must be done before dependents.
   run "gh label create do-first -R \"${repo}\" --color B60205 --description 'Do before other issues (prerequisite/blocker)' --force"
 done

@@ -1,7 +1,13 @@
 # agent-issue-ops
 
-Mention-triggered GitHub issue agents that run the Pocock protocol on GitHub Actions,
-authenticated with a Claude Max OAuth token.
+Mention-triggered GitHub issue agents that run the Pocock protocol on GitHub Actions.
+
+**Engine: OpenAI Codex (GPT) — enforced.** All three agents run through
+`openai/codex-action@v1` on the ChatGPT Pro plan (no API key). The engine is
+hardcoded in `agent.reusable.yml`; there is no per-run model choice. Runs draw
+from the plan's rolling usage window, and Codex executes in a `workspace-write`
+sandbox (network on, sudo dropped) with each role's least-privilege
+`GITHUB_TOKEN` doing the real permission enforcement.
 
 ## Agents
 - `@agent-explorer` — read-only: explores the repo, posts a compacted brief + recommends `@agent-fix` or `@agent-grill`. Applies the `do-first` label to prerequisite issues.
@@ -25,14 +31,19 @@ priority only) plus type (`bug`, `safety`, `spec-gap`, …) and workflow (`epic`
 - Onboarding + the shared issue workflow: `label-kit/references/agent-workflow.md`.
 
 ## One-time setup
-1. Generate the token from the Claude account with the most usage headroom:
-   `claude setup-token` → copy the token.
-2. Export it locally: `export CLAUDE_CODE_OAUTH_TOKEN=<token>`
-3. Make this repo **public** (no secrets here), or enable Settings → Actions →
+1. Store your Codex login as a file so bootstrap can read it: add
+   `cli_auth_credentials_store = "file"` to `~/.codex/config.toml`, then `codex login`
+   with the ChatGPT account that has the most usage headroom.
+2. Make this repo **public** (no secrets here), or enable Settings → Actions →
    "Accessible from repositories owned by <you>" so other repos can call the reusable workflow.
-4. Roll out to repos:
+3. Roll out to repos (installs workflows + sets the `CODEX_AUTH_JSON` secret + label):
    - Dry run: `./bootstrap.sh --dry-run --all`
    - Apply:   `./bootstrap.sh --all`   (or list specific `owner/repo`s)
+
+## Auth going stale
+CI seeds `auth.json` fresh from the repo secret on every run and discards any
+refreshed tokens afterwards. If agent runs start failing auth, reseed from your
+(still fresh) local login: `codex login` if needed, then re-run `./bootstrap.sh --all`.
 
 ## Usage
 On any issue, comment `@agent-explorer`. Read its brief. Reply `@agent-fix` or

@@ -10,16 +10,37 @@ on:
         required: true
         type: string
     secrets:
-      CLAUDE_CODE_OAUTH_TOKEN:
+      CODEX_AUTH_JSON:
+        description: "Contents of ~/.codex/auth.json (ChatGPT-plan managed auth). Reseed via bootstrap.sh."
         required: true
 jobs:
   run:
     runs-on: ubuntu-latest
+    # Engine enforcement: every role runs on OpenAI Codex (GPT). There is no
+    # per-run engine choice — changing engines means editing THIS file.
+    # Gate: the trigger phrase must appear in the triggering comment (or issue
+    # body for issue events), and the author must have repo standing.
+    if: >-
+      contains(github.event.comment.body || github.event.issue.body, inputs.trigger_phrase) &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+        github.event.comment.author_association || github.event.issue.author_association)
     steps:
       - uses: actions/checkout@v4
       - name: Select role prompt
         run: |
           set -euo pipefail
+          cat > /tmp/agent-context.md <<CONTEXT
+          GITHUB CONTEXT (you run headless inside GitHub Actions):
+          - Repository: ${{ github.repository }}
+          - Issue: #${{ github.event.issue.number }}
+          - The gh CLI is pre-authenticated via GH_TOKEN. Use it for ALL GitHub interaction:
+            read the issue + comments: gh issue view ${{ github.event.issue.number }} --comments
+            post a comment:            gh issue comment ${{ github.event.issue.number }} --body-file <file>
+            apply a label:             gh issue edit ${{ github.event.issue.number }} --add-label <label>
+            open a PR (fix role only): git checkout -b <branch>, commit, git push -u origin <branch>, gh pr create
+          - Your token carries least-privilege permissions for your role; out-of-role actions will fail.
+
+          CONTEXT
           case "${{ inputs.role }}" in
             explorer)
               cat > /tmp/agent-prompt.md <<'PROMPT'
@@ -78,11 +99,36 @@ jobs:
           esac
           {
             echo "AGENT_PROMPT<<PROMPT_EOF"
-            cat /tmp/agent-prompt.md
+            cat /tmp/agent-context.md /tmp/agent-prompt.md
             echo "PROMPT_EOF"
           } >> "$GITHUB_ENV"
-      - uses: anthropics/claude-code-action@v1
+      - name: Seed Codex auth (ChatGPT plan — no API key)
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CODEX_AUTH_JSON}" ]; then
+            echo "CODEX_AUTH_JSON secret is empty — reseed it: run ./bootstrap.sh from agent-issue-ops" >&2
+            exit 1
+          fi
+          mkdir -p /home/runner/.codex
+          chmod 700 /home/runner/.codex
+          printf '%s' "${CODEX_AUTH_JSON}" > /home/runner/.codex/auth.json
+          chmod 600 /home/runner/.codex/auth.json
+          # File-backed credentials (no keychain on CI) + allow network inside the
+          # workspace-write sandbox so gh / git push / test deps work. Filesystem
+          # writes stay confined to the checkout; sudo is dropped by the action.
+          cat > /home/runner/.codex/config.toml <<'TOML'
+          cli_auth_credentials_store = "file"
+
+          [sandbox_workspace_write]
+          network_access = true
+          TOML
+      - name: Run Codex (sole engine — GPT via ChatGPT plan)
+        uses: openai/codex-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          trigger_phrase: ${{ inputs.trigger_phrase }}
           prompt: ${{ env.AGENT_PROMPT }}
+          codex-home: /home/runner/.codex
+          sandbox: workspace-write
+        env:
+          GH_TOKEN: ${{ github.token }}
