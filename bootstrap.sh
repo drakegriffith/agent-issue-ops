@@ -38,7 +38,27 @@ for repo in "${REPOS[@]}"; do
       -f sha=\"\$(gh api repos/${repo}/contents/${path} --jq .sha 2>/dev/null || true)\" >/dev/null"
   done
   run "gh secret set CLAUDE_CODE_OAUTH_TOKEN -R \"${repo}\" --body \"\${CLAUDE_CODE_OAUTH_TOKEN}\""
-  # Ordering label: prerequisite issues that must be done before dependents.
-  run "gh label create do-first -R \"${repo}\" --color B60205 --description 'Do before other issues (prerequisite/blocker)' --force"
+
+  # ── agent-issue-ops standard label taxonomy (idempotent; --force updates in place) ──
+  # PRIORITY — traffic light. RESERVED hues: nothing else is red/orange/yellow/green.
+  run "gh label create P0-critical  -R \"${repo}\" --color d73a4a --description '🔴 Critical — drop everything; safety / data-loss / security' --force"
+  run "gh label create P1-high      -R \"${repo}\" --color f66a0a --description '🟠 High — integrity / correctness risk' --force"
+  run "gh label create P2-medium    -R \"${repo}\" --color ffd33d --description '🟡 Medium — normal correctness / operator-facing' --force"
+  run "gh label create P3-low       -R \"${repo}\" --color 2da44e --description '🟢 Low — refactor / polish / governance' --force"
+  # TYPE — what kind of work (non-traffic hues).
+  run "gh label create safety       -R \"${repo}\" --color bf3989 --description 'Fail-open / no-autosend / guardrail correctness' --force"
+  run "gh label create bug          -R \"${repo}\" --color d876e3 --description 'Defect — wrong behavior' --force"
+  run "gh label create code-quality -R \"${repo}\" --color 1b7c83 --description 'Refactor / smell / maintainability' --force"
+  run "gh label create spec-gap     -R \"${repo}\" --color 8250df --description 'Diverges from the spec / requirements' --force"
+  run "gh label create enhancement  -R \"${repo}\" --color a2eeef --description 'New capability' --force"
+  run "gh label create docs         -R \"${repo}\" --color 0969da --description 'Documentation / notes' --force"
+  # WORKFLOW — state, not kind.
+  run "gh label create epic         -R \"${repo}\" --color 24292f --description 'Tracking issue (rolls up child issues via a checklist)' --force"
+  run "gh label create blocked      -R \"${repo}\" --color 6e7781 --description 'Has a hard prerequisite — see Blocked by #N in the issue body' --force"
+  # do-first: ordering signal @agent-explorer applies to a prerequisite that gates others.
+  # Neutral charcoal (off the reserved traffic-light hues); pairs with 'blocked' on the dependent.
+  run "gh label create do-first     -R \"${repo}\" --color 444d56 --description 'Prerequisite — do before dependents; pairs with blocked' --force"
+  # AREA/subsystem labels are created ad-hoc in blue (0969da), e.g.:
+  #   gh label create publish-queue -R \"${repo}\" --color 0969da --description 'Publish Queue subsystem' --force
 done
 echo "done"

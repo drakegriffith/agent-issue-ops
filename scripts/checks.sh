@@ -42,10 +42,12 @@ grep -q "pull-requests: write" templates/agent-fix.yml || fail "fix template nee
 grep -q "pull-requests: write" templates/agent-explorer.yml && fail "explorer must NOT have PR write"
 grep -q "pull-requests: write" templates/agent-grill.yml && fail "grill must NOT have PR write"
 
-# 7. Bootstrap exists, is executable, supports --dry-run + creates the label.
+# 7. Bootstrap exists, is executable, supports --dry-run + installs the label taxonomy.
 [ -x bootstrap.sh ] || fail "bootstrap.sh missing or not executable"
 grep -q "dry-run" bootstrap.sh || fail "bootstrap.sh must support --dry-run"
 grep -q "gh label create do-first" bootstrap.sh || fail "bootstrap.sh must create the do-first label"
+grep -q "gh label create P0-critical" bootstrap.sh || fail "bootstrap.sh must install the priority taxonomy (P0-critical)"
+grep -q "gh label create blocked" bootstrap.sh || fail "bootstrap.sh must install the workflow taxonomy (blocked)"
 command -v shellcheck >/dev/null && { shellcheck bootstrap.sh scripts/checks.sh || fail "shellcheck"; }
 
 echo "checks: OK"

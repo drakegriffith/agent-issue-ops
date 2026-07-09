@@ -70,20 +70,33 @@ brief is posted as an issue comment; when `@agent-fix` later runs, it reads the 
 Each role is a **~30-line prompt** that inlines the relevant Pocock stage. `pocock-code-review` runs
 *inside* `@agent-fix` (before it opens the PR), not as a separate agent.
 
-## Label vocabulary (ordering)
+## Label vocabulary (the agent-issue-ops standard taxonomy)
 
-Most issues are minor, order-independent bug fixes and carry **no special label**. For the case where
-one issue must be resolved *before* others — typically a large `@agent-grill` that gates dependent
-work — there is one visible label:
+`bootstrap.sh` installs one shared taxonomy into every target repo (idempotent
+`gh label create --force`), so this system is the single cross-project source of truth for issue
+labels. The rule that keeps it readable: **the traffic-light hues (red / orange / yellow / green)
+are reserved for _priority only_** — every other label uses a different hue.
 
-- **`do-first`** — a prerequisite/blocker: complete this issue before starting dependent ones. Shows
-  up in the GitHub issue list so ordering is obvious at a glance.
+- **Priority** (exactly one per issue): `P0-critical` `d73a4a` · `P1-high` `f66a0a` ·
+  `P2-medium` `ffd33d` · `P3-low` `2da44e`.
+- **Type** (as many as apply): `safety` `bf3989` · `bug` `d876e3` · `code-quality` `1b7c83` ·
+  `spec-gap` `8250df` · `enhancement` `a2eeef` · `docs` `0969da`.
+- **Workflow** (state, not kind): `epic` `24292f` · `blocked` `6e7781` · `do-first` `444d56`.
+- **Area/subsystem**: ad-hoc, always blue `0969da`.
 
-`@agent-explorer` **applies `do-first`** (it has `issues: write`, and labelling is issue metadata, not
-a code change) when its exploration concludes the issue gates others, and calls that out in its brief.
-The human can add/remove the label manually too. The label is created per repo by `bootstrap.sh`
-(`gh label create`). Optional future extension: a `blocked` label for the dependent issues — deferred;
-`do-first` alone gives the ordering signal Drake asked for.
+Ordering uses the paired workflow labels:
+
+- **`do-first`** — the prerequisite that gates others: complete it before dependent issues. Shows in
+  the GitHub issue list so ordering is obvious at a glance.
+- **`blocked`** — the dependent side: it has a hard prerequisite; its body opens with `> ⛔ Blocked by #N`.
+
+`@agent-explorer` **applies `do-first`** (it has `issues: write`, and labelling is issue metadata,
+not a code change) when its exploration concludes the issue gates others, and calls that out in its
+brief. The human can add/remove any label manually too.
+
+**Color note:** `do-first` was originally red `B60205`, which collided with `P0-critical`'s reserved
+red. It is recolored to a neutral charcoal `444d56` (off the reserved traffic-light hues) so a color
+never means two things; it now pairs visually with `blocked` (gray) as the two ordering labels.
 
 ## Protocol delivery (skills on the runner)
 
