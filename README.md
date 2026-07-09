@@ -10,10 +10,23 @@ authenticated with a Claude Max OAuth token.
 
 Handoff is human-gated: an agent recommends the next; you @mention it to proceed.
 
-## Ordering
-Most issues are order-independent and carry no label. An issue that must be done before
-others (e.g. a gating grill-me) gets the **`do-first`** label — visible in the issue list.
-The explorer applies it when it judges the issue gates dependent work.
+## Label taxonomy
+`bootstrap.sh` installs the **agent-issue-ops standard taxonomy** into every target repo
+(idempotent `gh label create --force`), so a color always means one thing across all repos.
+The traffic-light hues (red / orange / yellow / green) are **reserved for priority only**.
+
+| Group | Labels |
+|---|---|
+| **Priority** (exactly one) | `P0-critical` 🔴 · `P1-high` 🟠 · `P2-medium` 🟡 · `P3-low` 🟢 |
+| **Type** (as they apply) | `safety` · `bug` · `code-quality` · `spec-gap` · `enhancement` · `docs` |
+| **Workflow** (state) | `epic` · `blocked` · `do-first` |
+| **Area/subsystem** | ad-hoc, always blue `0969da` (e.g. `publish-queue`) |
+
+**Ordering:** most issues are order-independent and carry no workflow label. An issue that
+must be done before others (e.g. a gating grill-me) gets **`do-first`** — the explorer applies
+it when it judges the issue gates dependent work. Its dependents get **`blocked`** with a
+`> ⛔ Blocked by #N` first body line. (`do-first` is a neutral charcoal, off the reserved
+traffic-light hues, so it never reads as a priority.)
 
 ## One-time setup
 1. Generate the token from the Claude account with the most usage headroom:
