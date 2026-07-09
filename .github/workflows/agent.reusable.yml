@@ -61,7 +61,11 @@ jobs:
           4. Recommend exactly ONE next move and name the agent:
              - "@agent-fix" if the issue is well-scoped and safe to implement now.
              - "@agent-grill" if it is under-specified and needs sharpening first.
-             Give a one-line reason.
+             Give a one-line reason. Then apply the matching routing label:
+             "route:afk-agent" for @agent-fix, "route:grill-first" for
+             @agent-grill — or "route:human" (and say why) if the issue needs
+             human judgment, credentials, or hands-on work no agent should
+             attempt.
           5. If this issue must be resolved BEFORE other issues in the repo (it gates
              dependent work — e.g. a large grill-me others build on), apply the
              "do-first" label to the issue and say so in your brief. Most minor bug

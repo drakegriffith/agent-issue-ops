@@ -35,6 +35,11 @@ lbl "blocked"  6e7781 "Has a hard prerequisite — see Blocked by #N in the issu
 # Neutral charcoal — off the reserved traffic-light hues so it never reads as a priority.
 lbl "do-first" 444d56 "Prerequisite — do before dependents; pairs with blocked"
 
+# ── ROUTING — who executes. EVERY filed issue gets exactly ONE route label. ──
+lbl "route:afk-agent"   006b75 "Well-scoped — an AFK agent can implement unattended (@agent-fix)"
+lbl "route:grill-first" d4c5f9 "Under-specified — grill/spec cycle before any code (@agent-grill)"
+lbl "route:human"       7057ff "Needs the human — judgment, creds, or hands-on work; don't dispatch"
+
 echo "Done."
 echo "Area/subsystem labels (e.g. 'publish-queue', 'billing') are created ad-hoc in blue (0969da):"
 echo "  gh label create <area> -R $REPO --color 0969da --description '<subsystem> …'"
