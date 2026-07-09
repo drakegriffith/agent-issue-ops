@@ -70,6 +70,21 @@ brief is posted as an issue comment; when `@agent-fix` later runs, it reads the 
 Each role is a **~30-line prompt** that inlines the relevant Pocock stage. `pocock-code-review` runs
 *inside* `@agent-fix` (before it opens the PR), not as a separate agent.
 
+## Label vocabulary (ordering)
+
+Most issues are minor, order-independent bug fixes and carry **no special label**. For the case where
+one issue must be resolved *before* others — typically a large `@agent-grill` that gates dependent
+work — there is one visible label:
+
+- **`do-first`** — a prerequisite/blocker: complete this issue before starting dependent ones. Shows
+  up in the GitHub issue list so ordering is obvious at a glance.
+
+`@agent-explorer` **applies `do-first`** (it has `issues: write`, and labelling is issue metadata, not
+a code change) when its exploration concludes the issue gates others, and calls that out in its brief.
+The human can add/remove the label manually too. The label is created per repo by `bootstrap.sh`
+(`gh label create`). Optional future extension: a `blocked` label for the dependent issues — deferred;
+`do-first` alone gives the ordering signal Drake asked for.
+
 ## Protocol delivery (skills on the runner)
 
 The cloud runner does **not** have `~/.claude/skills`. v1 encodes each Pocock stage **inline in the
