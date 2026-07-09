@@ -15,6 +15,15 @@ Most issues are order-independent and carry no label. An issue that must be done
 others (e.g. a gating grill-me) gets the **`do-first`** label — visible in the issue list.
 The explorer applies it when it judges the issue gates dependent work.
 
+## Label kit (standard issue-label taxonomy)
+[`label-kit/`](label-kit/) carries the standard label taxonomy for every repo:
+traffic-light priority `P0-critical`…`P3-low` (red/orange/yellow/green reserved for
+priority only) plus type (`bug`, `safety`, `spec-gap`, …) and workflow (`epic`,
+`blocked`) labels. Works on any repository, any project.
+- Apply to a repo: `bash label-kit/setup-labels.sh [owner/repo]` (idempotent).
+- Install as a local Claude skill: `bash label-kit/install.sh`.
+- Onboarding + the shared issue workflow: `label-kit/references/agent-workflow.md`.
+
 ## One-time setup
 1. Generate the token from the Claude account with the most usage headroom:
    `claude setup-token` → copy the token.
