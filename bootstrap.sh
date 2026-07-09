@@ -70,7 +70,8 @@ for repo in "${REPOS[@]}"; do
   # stdin keeps the token out of the command string (and out of --dry-run output);
   # older gh versions lack --body-file.
   run "gh secret set CODEX_AUTH_JSON -R \"${repo}\" < \"\${CODEX_AUTH_FILE}\""
-  # Ordering label: prerequisite issues that must be done before dependents.
-  run "gh label create do-first -R \"${repo}\" --color B60205 --description 'Do before other issues (prerequisite/blocker)' --force"
+  # Full standard taxonomy (priority + type + workflow + routing) — the explorer
+  # applies route:* labels, so they must exist wherever the agents are installed.
+  run "bash \"$(dirname "$0")/label-kit/setup-labels.sh\" \"${repo}\""
 done
 echo "done"
