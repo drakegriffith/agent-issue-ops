@@ -35,6 +35,25 @@ fi
 
 run() { if [ "$DRY" = 1 ]; then echo "DRY: $*"; else eval "$*"; fi; }
 
+# Contents-API PUT with retry: sequential PUTs to the same branch can 409 on a
+# stale head right after the previous install commit. Refetch the sha and retry.
+put_file() {
+  local repo="$1" path="$2" content="$3" attempt sha
+  for attempt in 1 2 3; do
+    sha="$(gh api "repos/${repo}/contents/${path}" --jq .sha 2>/dev/null || true)"
+    if gh api -X PUT "repos/${repo}/contents/${path}" \
+      -f message="chore: install ${path##*/}" \
+      -f content="${content}" \
+      -f sha="${sha}" >/dev/null 2>&1; then
+      return 0
+    fi
+    echo "  retry ${attempt}/3: ${path} (branch head race)" >&2
+    sleep 2
+  done
+  echo "failed to install ${path} in ${repo}" >&2
+  return 1
+}
+
 for repo in "${REPOS[@]}"; do
   echo "== $repo =="
   for role in explorer fix grill; do
@@ -42,13 +61,15 @@ for repo in "${REPOS[@]}"; do
     content="$(sed "s#OWNER/agent-issue-ops#${OWNER}/agent-issue-ops#g" "$src" | base64)"
     path=".github/workflows/agent-${role}.yml"
     # Create or update the file on the default branch via the contents API.
-    run "gh api -X PUT \"repos/${repo}/contents/${path}\" \
-      -f message='chore: install agent-${role} workflow' \
-      -f content='${content}' \
-      -f sha=\"\$(gh api repos/${repo}/contents/${path} --jq .sha 2>/dev/null || true)\" >/dev/null"
+    if [ "$DRY" = 1 ]; then
+      echo "DRY: install ${path} in ${repo}"
+    else
+      put_file "$repo" "$path" "$content"
+    fi
   done
-  # --body-file keeps the token out of the command string (and out of --dry-run output).
-  run "gh secret set CODEX_AUTH_JSON -R \"${repo}\" --body-file \"\${CODEX_AUTH_FILE}\""
+  # stdin keeps the token out of the command string (and out of --dry-run output);
+  # older gh versions lack --body-file.
+  run "gh secret set CODEX_AUTH_JSON -R \"${repo}\" < \"\${CODEX_AUTH_FILE}\""
   # Ordering label: prerequisite issues that must be done before dependents.
   run "gh label create do-first -R \"${repo}\" --color B60205 --description 'Do before other issues (prerequisite/blocker)' --force"
 done

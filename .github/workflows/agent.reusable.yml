@@ -19,11 +19,16 @@ jobs:
     # Engine enforcement: every role runs on OpenAI Codex (GPT). There is no
     # per-run engine choice — changing engines means editing THIS file.
     # Gate: the trigger phrase must appear in the triggering comment (or issue
-    # body for issue events), and the author must have repo standing.
+    # body for issue events), and the author must have repo standing. Kept
+    # explicit per event — the `comment.body || issue.body` fallback form
+    # skipped on `issues` events in practice.
     if: >-
-      contains(github.event.comment.body || github.event.issue.body, inputs.trigger_phrase) &&
-      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-        github.event.comment.author_association || github.event.issue.author_association)
+      (github.event_name == 'issue_comment' &&
+        contains(github.event.comment.body, inputs.trigger_phrase) &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'issues' &&
+        contains(github.event.issue.body, inputs.trigger_phrase) &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
     steps:
       - uses: actions/checkout@v4
       - name: Select role prompt
@@ -117,18 +122,24 @@ jobs:
           chmod 600 /home/runner/.codex/auth.json
           # File-backed credentials (no keychain on CI) + allow network inside the
           # workspace-write sandbox so gh / git push / test deps work. Filesystem
-          # writes stay confined to the checkout; sudo is dropped by the action.
+          # writes stay confined to the checkout.
           cat > /home/runner/.codex/config.toml <<'TOML'
           cli_auth_credentials_store = "file"
 
           [sandbox_workspace_write]
           network_access = true
           TOML
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex
       - name: Run Codex (sole engine — GPT via ChatGPT plan)
-        uses: openai/codex-action@v1
-        with:
-          prompt: ${{ env.AGENT_PROMPT }}
-          codex-home: /home/runner/.codex
-          sandbox: workspace-write
+        # openai/codex-action@v1 is API-key-only: its Responses-API proxy starts
+        # only when openai-api-key is set, and the prompt path then dies reading
+        # the proxy's server-info file. ChatGPT-plan auth therefore invokes the
+        # CLI directly against the seeded CODEX_HOME. Prompt arrives via stdin
+        # ("-") so the issue body is never shell-interpolated.
         env:
           GH_TOKEN: ${{ github.token }}
+          CODEX_HOME: /home/runner/.codex
+        run: |
+          set -euo pipefail
+          printf '%s' "$AGENT_PROMPT" | codex exec --sandbox workspace-write -
